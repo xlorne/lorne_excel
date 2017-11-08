@@ -6,13 +6,11 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
-        <module name="jxl-demo" />
-        <module name="lorne_core_excel" />
+        <module name="lorne_excel" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
-      <module name="jxl-demo" target="1.7" />
-      <module name="lorne_core_excel" target="1.7" />
+      <module name="lorne_excel" target="1.7" />
     </bytecodeTargetLevel>
   </component>
 </project>

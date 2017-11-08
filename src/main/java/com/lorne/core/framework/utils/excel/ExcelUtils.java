@@ -50,12 +50,10 @@ public class ExcelUtils {
 	/**
 	 * Excel文件读写
 	 * @param filePath	Excel文件路径
-	 * @return	List<LSheet>类型的数据来表示Excel的数据。其中List的数量表示Excel的页数，String[][]表示每页中每个单元格的值
-	 * @throws BiffException
-	 * @throws IOException
+	 * @return 所以的excel数据
+	 * @throws Exception Exception
 	 */
-	public static List<LSheet> getExcelData(File filePath)
-			throws BiffException, IOException {
+	public static List<LSheet> getExcelData(File filePath) throws Exception {
 		InputStream is = new FileInputStream(filePath);
 		//获取存储Excel数据的Workbook对象
 		Workbook rwb = Workbook.getWorkbook(is);
@@ -118,6 +116,12 @@ public class ExcelUtils {
 	}
 
 
+	/**
+	 * 写入excel文件
+	 * @param file 文件路径
+	 * @param sheets	数据
+	 * @throws Exception Exception
+	 */
 	public static void writeExcel(File file,List<LSheet> sheets) throws Exception {
 		OutputStream os = new FileOutputStream(file);
 		// 创建工作薄
