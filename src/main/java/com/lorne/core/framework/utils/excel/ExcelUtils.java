@@ -3,7 +3,6 @@ package com.lorne.core.framework.utils.excel;
 
 import com.lorne.core.framework.utils.excel.model.LRow;
 import com.lorne.core.framework.utils.excel.model.LSheet;
-import org.apache.poi.hssf.usermodel.HSSFCell;
 import org.apache.poi.hssf.usermodel.HSSFDateUtil;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.*;
@@ -13,6 +12,8 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
@@ -55,56 +56,65 @@ public class ExcelUtils {
 
 
 
+	/**
+	 * Excel文件读写
+	 * @param filePath	Excel文件路径
+	 * @return 所以的excel数据
+	 * @throws Exception Exception
+	 */
+	public static List<LSheet> getExcelData(File filePath) throws Exception{
+			Workbook wb = null;
+			try {
+				List<LSheet> sheets = new ArrayList<>();
+				String fileName = filePath.getName();
 
-	public static List<LSheet> readExcel(File file){
-		try {
+				if (fileName.endsWith(".xlsx")) {
+					wb = new XSSFWorkbook(filePath);
+				} else {
+					wb = new HSSFWorkbook(new FileInputStream(filePath));
+				}
+				int sheetNumbers = wb.getNumberOfSheets();
 
-			List<LSheet> sheets = new ArrayList<>();
+				for (int page = 0; page < sheetNumbers; page++) {
+					Sheet sheet = wb.getSheetAt(page);
 
-			String fileName = file.getName();
-			Workbook wb;
-			if(fileName.endsWith(".xlsx")){
-				wb = new XSSFWorkbook(file);
-			}else{
-				wb = new HSSFWorkbook(new FileInputStream(file));
-			}
-			int sheetNumbers = wb.getNumberOfSheets();
+					LSheet lSheet = new LSheet();
+					lSheet.setSheetName(sheet.getSheetName());
 
-			for(int page=0;page<sheetNumbers;page++){
-				Sheet sheet =  wb.getSheetAt(page);
+					List<CellRangeAddress> ranges = sheet.getMergedRegions();
 
-				LSheet lSheet = new LSheet();
-				lSheet.setSheetName(sheet.getSheetName());
+					int rows = sheet.getPhysicalNumberOfRows();
 
-				List<CellRangeAddress> ranges = sheet.getMergedRegions();
+					List<LRow> lRows = new ArrayList<>();
 
-				int rows = sheet.getPhysicalNumberOfRows();
-
-				List<LRow> lRows = new ArrayList<>();
-
-				for(int rowIndex=0;rowIndex<rows;rowIndex++){
-					LRow lRow = new LRow();
-					List<String> content = new ArrayList<>();
-					Row row =  sheet.getRow(rowIndex);
-					if(row!=null) {
-						int colNumber = row.getPhysicalNumberOfCells();
-						for (int colIndex = 0; colIndex < colNumber; colIndex++) {
-							Cell val =  withMergeCell(sheet,row.getCell(colIndex),ranges);
-							String value = getCellValue(val);
-							content.add(value);
+					for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
+						LRow lRow = new LRow();
+						List<String> content = new ArrayList<>();
+						Row row = sheet.getRow(rowIndex);
+						if (row != null) {
+							int colNumber = row.getPhysicalNumberOfCells();
+							for (int colIndex = 0; colIndex < colNumber; colIndex++) {
+								Cell val = withMergeCell(sheet, row.getCell(colIndex), ranges);
+								String value = getCellValue(val);
+								content.add(value);
+							}
+							lRow.setContent(content);
+							lRows.add(lRow);
 						}
-						lRow.setContent(content);
-						lRows.add(lRow);
+
 					}
+					lSheet.setRows(lRows);
+					sheets.add(lSheet);
 
 				}
-				lSheet.setRows(lRows);
-				sheets.add(lSheet);
+				return sheets;
+			}finally {
+				if(wb!=null) {
+					wb.close();
+				}
 			}
-		}catch (Exception e){
-			e.printStackTrace();
-		}
-		return null;
+
+
 	}
 
 	private static String getCellValue(Cell cell) 	{
@@ -164,9 +174,53 @@ public class ExcelUtils {
 		return cellvalue;
 	}
 
-	public static void main(String[] args) {
-		readExcel(new File("/test/123.xlsx"));
-	}
 
+	/**
+	 * 写入excel文件
+	 * @param file 文件路径
+	 * @param sheets	数据
+	 * @throws Exception Exception
+	 */
+	public static void writeExcel(File file,List<LSheet> sheets) throws Exception {
+		Workbook wb = null;
+		OutputStream os = null;
+		try {
+			// 创建工作薄
+			String fileName = file.getName();
+			os = new FileOutputStream(file);
+
+			if (fileName.endsWith(".xlsx")) {
+				wb = new XSSFWorkbook();
+			} else {
+				wb = new HSSFWorkbook();
+			}
+			// 创建新的一页
+			for (int pageIndex = 0; pageIndex < sheets.size(); pageIndex++) {
+				LSheet lSheet = sheets.get(pageIndex);
+				Sheet sheet = wb.createSheet(lSheet.getSheetName());
+
+				List<LRow> rows = lSheet.getRows();
+
+				for (int row = 0; row < rows.size(); row++) {
+					Row rowData = sheet.createRow(row);
+					List<String> content = rows.get(row).getContent();
+					for (int j = 0; j < content.size(); j++) {
+						String v = content.get(j);
+						rowData.createCell(j).setCellValue(v);
+					}
+				}
+			}
+			wb.write(os);
+
+		}finally {
+			if(wb!=null) {
+				wb.close();
+			}
+			if(os!=null) {
+				os.close();
+			}
+		}
+
+	}
 
 }

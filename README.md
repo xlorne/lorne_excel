@@ -8,7 +8,7 @@ Excel Utils
  <dependency>
     <groupId>com.github.1991wangliang</groupId>
     <artifactId>lorne_excel</artifactId>
-    <version>1.0.0</version>
+    <version>2.0.0</version>
  </dependency>
 
 ```
