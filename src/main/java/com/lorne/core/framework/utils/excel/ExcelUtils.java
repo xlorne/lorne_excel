@@ -3,19 +3,23 @@ package com.lorne.core.framework.utils.excel;
 
 import com.lorne.core.framework.utils.excel.model.LRow;
 import com.lorne.core.framework.utils.excel.model.LSheet;
-import com.lorne.core.framework.utils.excel.model.LMergeCellModel;
-import jxl.Cell;
-import jxl.Range;
-import jxl.Sheet;
-import jxl.Workbook;
-import jxl.read.biff.BiffException;
-import jxl.write.Label;
-import jxl.write.WritableSheet;
-import jxl.write.WritableWorkbook;
+import org.apache.poi.hssf.usermodel.HSSFCell;
+import org.apache.poi.hssf.usermodel.HSSFDateUtil;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.ss.util.NumberToTextConverter;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.text.DateFormat;
+import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+
 
 /**
  * Excel文件读取
@@ -25,125 +29,144 @@ import java.util.List;
 
 public class ExcelUtils {
 
-	/**
-	 * 判断该单元格是否属于合并单元格
-	 * @param x
-	 * @param y
-	 * @param lists
-	 * @return 不存在与该单元格返回值为null
-	 */
-	private static String inMergeCells(int x, int y,
-			List<LMergeCellModel> lists) {
-		String value = null;
-		if (lists == null || lists.size() <= 0) {
-			return value;
+
+	private static Cell withMergeCell(Sheet sheet,Cell cell,
+			List<CellRangeAddress> ranges) {
+		if(cell==null){
+			return null;
 		}
-		for (LMergeCellModel e : lists) {
-			if ((x >= e.getStartX() && x <= e.getEndX())
-					&& (y >= e.getStartY() && y <= e.getEndY())) {
-				value = e.getValue();
-			}
+		if(ranges==null||ranges.size()==0){
+			return cell;
 		}
-		return value;
+		for (CellRangeAddress range : ranges) {
+			 if(range.isInRange(cell)){
+				 int firstColumn = range.getFirstColumn();
+				 int lastColumn = range.getLastColumn();
+				 int firstRow = range.getFirstRow();
+				 int lastRow = range.getLastRow();
+
+				 Row row = sheet.getRow(firstRow);
+				 Cell value = row.getCell(firstColumn);
+				 return value;
+			 }
+		}
+		return cell;
 	}
 
-	/**
-	 * Excel文件读写
-	 * @param filePath	Excel文件路径
-	 * @return 所以的excel数据
-	 * @throws Exception Exception
-	 */
-	public static List<LSheet> getExcelData(File filePath) throws Exception {
-		InputStream is = new FileInputStream(filePath);
-		//获取存储Excel数据的Workbook对象
-		Workbook rwb = Workbook.getWorkbook(is);
-		//获取Excel的页数
-		int slg = rwb.getSheets().length;
 
-		List<LSheet> sheets = new ArrayList<>();
-		//遍历Excel每页中的值
-		for (int si = 0; si < slg; si++) {
-			//获取当页的数据
-			Sheet rs =  rwb.getSheet(si);
 
-			LSheet lSheet = new LSheet();
-			lSheet.setSheetName(rs.getName());
 
-			//获取当前页中合并的单元格
-			List<LMergeCellModel> lists = readRange(rs);
-			//创建当页数据的数组对象
-			int rows = rs.getRows();
-			int columns = rs.getColumns();
+	public static List<LSheet> readExcel(File file){
+		try {
 
-			List<LRow> lRows = new ArrayList<>();
-			//遍历获取该页下所有的单元格数据
-			for (int i = 0; i < rows; i++) {
-				LRow lRow = new LRow();
-				List<String> content = new ArrayList<>();
-				for (int j = 0; j < columns; j++) {
-					//判断当前单元格是否存在与合并单元格中
-					String mv = inMergeCells(j, i, lists);
-					//获取当前单元格的值
-					Cell v = rs.getCell(j, i);
-					String value = mv == null ? v.getContents() : mv;
-					content.add(value);
+			List<LSheet> sheets = new ArrayList<>();
+
+			String fileName = file.getName();
+			Workbook wb;
+			if(fileName.endsWith(".xlsx")){
+				wb = new XSSFWorkbook(file);
+			}else{
+				wb = new HSSFWorkbook(new FileInputStream(file));
+			}
+			int sheetNumbers = wb.getNumberOfSheets();
+
+			for(int page=0;page<sheetNumbers;page++){
+				Sheet sheet =  wb.getSheetAt(page);
+
+				LSheet lSheet = new LSheet();
+				lSheet.setSheetName(sheet.getSheetName());
+
+				List<CellRangeAddress> ranges = sheet.getMergedRegions();
+
+				int rows = sheet.getPhysicalNumberOfRows();
+
+				List<LRow> lRows = new ArrayList<>();
+
+				for(int rowIndex=0;rowIndex<rows;rowIndex++){
+					LRow lRow = new LRow();
+					List<String> content = new ArrayList<>();
+					Row row =  sheet.getRow(rowIndex);
+					if(row!=null) {
+						int colNumber = row.getPhysicalNumberOfCells();
+						for (int colIndex = 0; colIndex < colNumber; colIndex++) {
+							Cell val =  withMergeCell(sheet,row.getCell(colIndex),ranges);
+							String value = getCellValue(val);
+							content.add(value);
+						}
+						lRow.setContent(content);
+						lRows.add(lRow);
+					}
+
 				}
-				lRow.setContent(content);
-				lRows.add(lRow);
+				lSheet.setRows(lRows);
+				sheets.add(lSheet);
 			}
-
-			lSheet.setRows(lRows);
-			sheets.add(lSheet);
+		}catch (Exception e){
+			e.printStackTrace();
 		}
-		return sheets;
+		return null;
 	}
 
-
-	private static List<LMergeCellModel> readRange(Sheet rs){
-		Range[] ranges = rs.getMergedCells();
-		List<LMergeCellModel> list = new ArrayList<LMergeCellModel>();
-		//封装合并单元格的数据
-		for (Range r : ranges) {
-			LMergeCellModel cellModel = new LMergeCellModel();
-			cellModel.setStartY(r.getTopLeft().getRow());
-			cellModel.setEndY(r.getBottomRight().getRow());
-			cellModel.setStartX(r.getTopLeft().getColumn());
-			cellModel.setEndX(r.getBottomRight().getColumn());
-			cellModel.setValue(r.getTopLeft().getContents());
-			list.add(cellModel);
-		}
-		return list;
-	}
-
-
-	/**
-	 * 写入excel文件
-	 * @param file 文件路径
-	 * @param sheets	数据
-	 * @throws Exception Exception
-	 */
-	public static void writeExcel(File file,List<LSheet> sheets) throws Exception {
-		OutputStream os = new FileOutputStream(file);
-		// 创建工作薄
-		WritableWorkbook workbook = Workbook.createWorkbook(os);
-		// 创建新的一页
-		for(int pageIndex=0;pageIndex<sheets.size();pageIndex++) {
-			LSheet lSheet = sheets.get(pageIndex);
-			WritableSheet sheet = workbook.createSheet(lSheet.getSheetName(),pageIndex);
-			List<LRow> rows = lSheet.getRows();
-			for (int row = 0; row < rows.size(); row++) {
-				List<String> content = rows.get(row).getContent();
-				for (int j = 0; j <content.size(); j++) {
-					String v = content.get(j);
-					Label l = new Label(j, row, v);
-					sheet.addCell(l);
+	private static String getCellValue(Cell cell) 	{
+		String cellvalue = "";
+		if (cell != null) {
+			// 判断当前Cell的Type
+			CellType cellType =  cell.getCellTypeEnum();
+			switch (cellType) {
+				// 如果当前Cell的Type为NUMERIC
+				case NUMERIC: {
+					short format = cell.getCellStyle().getDataFormat();
+					if(format == 14 || format == 31 || format == 57 || format == 58){   //excel中的时间格式
+						SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+						double value = cell.getNumericCellValue();
+						Date date = DateUtil.getJavaDate(value);
+						cellvalue = sdf.format(date);
+					}
+					// 判断当前的cell是否为Date
+					else if (HSSFDateUtil.isCellDateFormatted(cell)) {  //先注释日期类型的转换，在实际测试中发现HSSFDateUtil.isCellDateFormatted(cell)只识别2014/02/02这种格式。
+						// 如果是Date类型则，取得该Cell的Date值           // 对2014-02-02格式识别不出是日期格式
+						Date date = cell.getDateCellValue();
+						DateFormat formater = new SimpleDateFormat("yyyy-MM-dd");
+						cellvalue= formater.format(date);
+					} else { // 如果是纯数字
+						// 取得当前Cell的数值
+						cellvalue = NumberToTextConverter.toText(cell.getNumericCellValue());
+					}
+					break;
+				}
+				// 如果当前Cell的Type为STRIN
+				case STRING: {
+					// 取得当前的Cell字符串
+					cellvalue = cell.getStringCellValue().replaceAll("'", "''");
+					break;
+				}
+				case  BLANK: {
+					cellvalue = "";
+					break;
+				}
+				case  FORMULA: {
+					try {
+						DecimalFormat df = new DecimalFormat("#.##");    //格式化为四位小数，按自己需求选择；
+						cellvalue = String.valueOf(df.format(cell.getNumericCellValue()));      //返回String类型
+					} catch (Exception e) {
+						cellvalue = String.valueOf(cell);
+					}
+					break;
+				}
+				// 默认的Cell值
+				default:{
+					cellvalue = " ";
 				}
 			}
+		} else {
+			cellvalue = "";
 		}
-		workbook.write();
-		workbook.close();
-		os.close();
-	 
+		return cellvalue;
 	}
+
+	public static void main(String[] args) {
+		readExcel(new File("/test/123.xlsx"));
+	}
+
 
 }
