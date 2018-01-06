@@ -1,14 +1,13 @@
 package com.lorne.core.framework.utils.excel;
 
 
+import com.lorne.core.framework.utils.excel.model.LMergeCellModel;
 import com.lorne.core.framework.utils.excel.model.LRow;
 import com.lorne.core.framework.utils.excel.model.LSheet;
-import com.lorne.core.framework.utils.excel.model.LMergeCellModel;
 import jxl.Cell;
 import jxl.Range;
 import jxl.Sheet;
 import jxl.Workbook;
-import jxl.read.biff.BiffException;
 import jxl.write.Label;
 import jxl.write.WritableSheet;
 import jxl.write.WritableWorkbook;
@@ -94,6 +93,12 @@ public class ExcelUtils {
 
 			lSheet.setRows(lRows);
 			sheets.add(lSheet);
+		}
+		if(rwb!=null) {
+			rwb.close();
+		}
+		if(is!=null){
+			is.close();
 		}
 		return sheets;
 	}
